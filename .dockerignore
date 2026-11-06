@@ -4,7 +4,6 @@
 .freebuff
 .git
 node_modules
-dist
 coverage
 *.log
 uploads

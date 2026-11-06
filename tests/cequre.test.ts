@@ -3,7 +3,7 @@ import { app } from '../cequre/app';
 import { createCequreTest } from 'cequre-ts/testing';
 import { issueKey, scopes } from '../cequre/utilities/auth';
 import { loadConfig } from '../cequre/utilities/config';
-import { purgeExpired } from '../cequre/utilities/runs';
+import { claimQueuedRun, purgeExpired } from '../cequre/utilities/runs';
 
 let harness: ReturnType<typeof createCequreTest>;
 let headers: Record<string, string>;
@@ -64,6 +64,32 @@ describe('Cequre health and authentication', () => {
     const data = envelope(await response.json());
     expect(data.backend).toBe('cequre');
     expect(data.operations.find((item: any) => item.operation === 'application_prepare').status).toBe('unavailable');
+  });
+});
+
+describe('durable execution claims', () => {
+  it('allows exactly one claimant across replicas', async () => {
+    const run = await app.create('runs', {
+      tenant_id: tenantId,
+      client_id: clientId,
+      operation: 'job_analysis',
+      status: 'queued',
+      progress: 0,
+      version: 1,
+      event_sequence: 0,
+      correlation_id: crypto.randomUUID(),
+      deadline_at: new Date(Date.now() + 60_000).toISOString(),
+      expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    try {
+      expect(await claimQueuedRun(app, run.id)).toBe(true);
+      expect(await claimQueuedRun(app, run.id)).toBe(false);
+      const stored = await app.findById('runs', run.id);
+      expect(stored?.status).toBe('running');
+      expect(stored?.started_at).toBeTruthy();
+    } finally {
+      await app.delete('runs', run.id);
+    }
   });
 });
 

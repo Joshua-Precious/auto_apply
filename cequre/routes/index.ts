@@ -141,9 +141,8 @@ routesModule.get('/openapi.json', () => new Response(JSON.stringify(openapi), {
   headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=300' },
 }));
 
-routesModule.get('/health', handle(async ctx => {
-  const tenants = await (ctx.cequre as App).count('tenants');
-  return send({ status: 'ok', service: 'jobauto-v1', backend: 'cequre', tenants });
+routesModule.get('/health', handle(async () => {
+  return send({ status: 'ok', service: 'jobauto-v1', backend: 'cequre' });
 }));
 
 routesModule.get('/capabilities', handle(async ctx => {

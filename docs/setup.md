@@ -7,12 +7,12 @@ Prerequisites: Bun 1.4.2, Docker, Cequre CLI 1.0.8 on PATH, ports 4310 / 5175 / 
 ```bash
 docker compose up -d --wait postgres   # project-local PostgreSQL 17
 bun install                            # pinned Bun lockfile
-bun run setup                          # writes private .env, runs cequre db:sync
+bun run setup                          # writes private .env, initializes Cequre schema
 bun run keys create                    # operator key; secret saved once to .local/key-<id>.txt
 bun run demo:enable                    # optional: loopback demo for the workbench
 ```
 
-`bun run setup` is idempotent. It creates `.env` if absent and runs `cequre db:sync --dir ./cequre`; the `.cequre` collections are the canonical schema. There is no hand-written migration directory. Never use `cequre db:sync --force` against a database you care about. Regenerate types after schema edits with `bun run generate`; never edit `cequre/_generated/`.
+`bun run setup` is idempotent. It creates `.env` if absent and initializes the schema by booting the Cequre runtime, which creates missing tables. Use `bun run db:init` when you need schema initialization without writing `.env`. The `.cequre` collections are the canonical schema; there is no hand-written migration directory. Do not use `cequre db:sync` as the migration step: on an existing Postgres database it can report changes without applying them. Never use `cequre db:sync --force` against a database you care about. Regenerate types after schema edits with `bun run generate`; never edit `cequre/_generated/`.
 
 If the database still contains the retired raw-SQL tables (`tenants`, `api_keys`, `runs`, …), rename them first so Cequre can create its schema without data loss:
 
@@ -31,7 +31,9 @@ bun run dev:api      # Cequre API on http://127.0.0.1:4310
 bun run dev:web      # React workbench on http://127.0.0.1:5175 (proxies /v1 to the API)
 ```
 
-There is no separate worker. `createRun` triggers execution immediately after acceptance and a Cequre cron job every minute recovers any queued run and performs retention. The per-tenant active-run quota (default 2) applies before acceptance.
+There is no separate worker. `createRun` triggers execution immediately after acceptance and a Cequre cron job every minute recovers queued runs, requeues stale claims and performs retention. A conditional Postgres update lets only one API replica claim a run. The per-tenant active-run quota (default 2) applies before acceptance.
+
+Production deployment, edge rate limits, backups and the go-live checklist: [production.md](production.md).
 
 Production-shaped check:
 
@@ -96,6 +98,16 @@ JOBAUTO_ORIGIN=http://127.0.0.1:4310 JOBAUTO_API_KEY="$JOBAUTO_API_KEY" bun run 
 
 It exposes `analyze_job`, `match_candidate`, `tailor_cv`, `get_run` and `get_artifact`; no file access and no submission tool. Origin and key are read from the environment only. stderr carries diagnostics; stdout is the protocol channel.
 
+### career-ops
+
+With a career-ops checkout available, install the stdio MCP entry and managed skill:
+
+```bash
+bun run career-ops:connect --root /path/to/career-ops --with-skill
+```
+
+The connector merges `.mcp.json` and `opencode.json`, and writes only a marked block in `modes/_custom.md`. It never stores the API key or candidate data in career-ops. Export `JOBAUTO_ORIGIN`, `JOBAUTO_API_KEY` and `JOBAUTO_SUBJECT_REF` in the shell that launches the AI CLI. The client must grant `JOBAUTO_SUBJECT_REF` (recommended `career-ops`) in `candidate_grants`. See [the connector README](../integrations/career-ops/README.md).
+
 ## Environment
 
 See [.env.example](../.env.example). Execution policy is deployment-controlled, never caller-controlled:
@@ -115,7 +127,7 @@ See [.env.example](../.env.example). Execution policy is deployment-controlled, 
 ## Tests
 
 ```bash
-bun run test               # Cequre lifecycle + MCP protocol
+bun run test               # Cequre lifecycle, MCP protocol and career-ops connector
 bun run test:integration   # Cequre lifecycle against real PostgreSQL
 bun run typecheck
 bun run build

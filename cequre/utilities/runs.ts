@@ -18,6 +18,7 @@ import {
 
 const ACTIVE = ['queued', 'running'];
 const TERMINAL = ['completed', 'failed', 'cancelled'];
+const LEASE_MS = 10 * 60_000;
 const USAGE = {
   model: null,
   prompt_version: 'deterministic-v1',
@@ -185,6 +186,30 @@ export async function findRun(app: App, tenantId: string, runId: string) {
 
 const executing = new Set<string>();
 
+/**
+ * Atomically move a queued run to running. The conditional UPDATE is the
+ * cross-process lock: exactly one API replica can claim a given run. A lease
+ * lets another replica recover the run if the claimant dies.
+ */
+export async function claimQueuedRun(app: App, runId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const raw = app.adapter.raw;
+  if (!raw) {
+    const current = await app.findById('runs', runId);
+    if (!current || current.status !== 'queued') return false;
+    await app.update('runs', runId, {
+      status: 'running', started_at: now, version: current.version + 1,
+    });
+    return true;
+  }
+  const rows = await raw.call(app.adapter,
+    `UPDATE runs SET status = 'running', started_at = $2, version = version + 1
+     WHERE id = $1 AND status = 'queued' RETURNING id`,
+    [runId, now],
+  );
+  return Array.isArray(rows) && rows.length === 1;
+}
+
 export async function executeRun(app: App, runId: string) {
   if (executing.has(runId)) return;
   executing.add(runId);
@@ -196,9 +221,7 @@ async function executeRunInner(app: App, runId: string) {
   const run = await app.findById('runs', runId);
   if (!run || run.status !== 'queued' || !run.job_snapshot_id) return;
 
-  await app.update('runs', runId, {
-    status: 'running', started_at: new Date().toISOString(), version: run.version + 1,
-  });
+  if (!await claimQueuedRun(app, runId)) return;
   await appendEvent(app, run.tenant_id, runId, 'run.started', 'running', {});
 
   try {
@@ -225,21 +248,30 @@ async function executeRunInner(app: App, runId: string) {
         };
       } else {
         const cv = validateTailoredCv(tailor(normalized, facts), facts);
-        const prior = await app.count('artifacts', {
-          where: { tenant_id: { eq: run.tenant_id }, subject_ref: { eq: input.candidate.subject_ref }, kind: { eq: 'tailored_cv' } },
-        });
-        const version = prior + 1;
-        const artifact = await app.create('artifacts', {
-          tenant_id: run.tenant_id,
-          run_id: runId,
-          subject_ref: input.candidate.subject_ref,
-          kind: 'tailored_cv',
-          version,
-          content: cv as any,
-          checksum: hashPayload(cv),
-          expires_at: run.expires_at,
-          version_key: `${run.tenant_id}:${input.candidate.subject_ref}:tailored_cv:${version}`,
-        });
+        // A recovered execution may already have written the artifact. Reuse it
+        // instead of creating a second version for the same run.
+        const existing = (await app.find('artifacts', {
+          where: { run_id: { eq: runId } }, limit: 1,
+        })).docs[0];
+        let artifact = existing;
+        let version = existing?.version;
+        if (!artifact) {
+          const prior = await app.count('artifacts', {
+            where: { tenant_id: { eq: run.tenant_id }, subject_ref: { eq: input.candidate.subject_ref }, kind: { eq: 'tailored_cv' } },
+          });
+          version = prior + 1;
+          artifact = await app.create('artifacts', {
+            tenant_id: run.tenant_id,
+            run_id: runId,
+            subject_ref: input.candidate.subject_ref,
+            kind: 'tailored_cv',
+            version,
+            content: cv as any,
+            checksum: hashPayload(cv),
+            expires_at: run.expires_at,
+            version_key: `${run.tenant_id}:${input.candidate.subject_ref}:tailored_cv:${version}`,
+          });
+        }
         result = {
           kind: 'cv_tailoring', artifact_id: artifact.id, version,
           limitations: ['Suggestions are unverified and require human review before submission.'],
@@ -425,7 +457,38 @@ export async function purgeExpired(app: App, config: AppConfig) {
   return removed;
 }
 
+/** Requeue runs whose claimant stopped heartbeating, then execute queue work. */
 export async function processQueuedRuns(app: App, limit = 10) {
+  const now = new Date().toISOString();
+  const staleBefore = new Date(Date.now() - LEASE_MS).toISOString();
+  const stale = (await app.find('runs', {
+    where: { status: { eq: 'running' }, started_at: { lt: staleBefore } }, limit,
+  })).docs;
+  let recovered = 0;
+  for (const run of stale) {
+    const raw = app.adapter.raw;
+    if (!raw) continue;
+    const rows = await raw.call(app.adapter,
+      `UPDATE runs SET status = 'queued', started_at = NULL, version = version + 1
+       WHERE id = $1 AND status = 'running' AND started_at IS NOT NULL AND started_at < $2 RETURNING id`,
+      [run.id, staleBefore],
+    );
+    if (!Array.isArray(rows) || rows.length !== 1) continue;
+    if (run.cancel_requested_at) {
+      await app.update('runs', run.id, {
+        status: 'cancelled', completed_at: now, version: run.version + 2,
+      });
+      await appendEvent(app, run.tenant_id, run.id, 'run.cancelled', 'cancelled', { reason: 'lease_expired_after_cancel' });
+    } else {
+      await appendEvent(app, run.tenant_id, run.id, 'run.requeued', 'queued', { reason: 'lease_expired' });
+      recovered += 1;
+      void executeRun(app, run.id).catch(error => {
+        console.error(JSON.stringify({ level: 'error', message: 'stale run recovery failed', run_id: run.id, error: String(error) }));
+      });
+    }
+  }
+  if (recovered) console.log(JSON.stringify({ level: 'info', message: 'stale runs requeued', count: recovered }));
+
   const queued = (await app.find('runs', {
     where: { status: { eq: 'queued' } }, sort: 'createdAt', limit,
   })).docs;

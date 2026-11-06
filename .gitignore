@@ -1,5 +1,6 @@
 node_modules/
 cequre/_generated/
+.cequre/logs/
 .env
 .env.*
 !.env.example

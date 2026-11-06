@@ -22,6 +22,9 @@ services:
       DATABASE_URL: postgres://jobauto:local-development-only@postgres:5432/jobauto
       HOST: 0.0.0.0
       PORT: 4310
+      ENABLE_LOCAL_DEMO: "false"
+    init: true
+    restart: unless-stopped
     ports: ["127.0.0.1:4310:4310"]
     depends_on:
       postgres: {condition: service_healthy}

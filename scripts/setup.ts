@@ -26,14 +26,15 @@ await ensureEnvFile();
 await loadEnv();
 
 // Cequre owns the schema. The generated DSL is the source of truth; there are
-// no hand-written migrations to replay.
-const sync = Bun.spawnSync({
-  cmd: ['cequre', 'db:sync', '--dir', './cequre'],
-  env: process.env,
-  stdout: 'inherit',
-  stderr: 'inherit',
-});
-if (sync.exitCode !== 0) throw new Error('cequre db:sync failed');
+// no hand-written migrations to replay. Use the runtime initializer rather than
+// the CLI sync: it is the path the API itself uses, and it applies new tables.
+const { app } = await import('../cequre/app');
+try {
+  await app.init();
+} finally {
+  app.retire();
+  await app.adapter.disconnect();
+}
 
 await mkdir('.local', { recursive: true, mode: 0o700 });
-console.log('Cequre schema synced. No key issued; use bun run keys create.');
+console.log('Cequre schema ready. No key issued; use bun run keys create.');
