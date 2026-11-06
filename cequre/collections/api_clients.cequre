@@ -1,0 +1,12 @@
+collection api_clients {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    name: text;
+    active: boolean @default(true);
+    scopes: json;
+    candidate_grants: json;
+  }
+}

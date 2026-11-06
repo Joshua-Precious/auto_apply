@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "cequre-ts": [
+        "./cequre/_generated/runtime/cequre"
+      ],
+      "cequre-ts/testing": [
+        "./cequre/_generated/runtime/testing"
+      ]
+    },
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": [
+      "bun"
+    ]
+  },
+  "include": [
+    "scripts",
+    "tests",
+    "integrations",
+    "cequre"
+  ],
+  "exclude": [
+    "cequre/_generated/client.ts"
+  ]
+}

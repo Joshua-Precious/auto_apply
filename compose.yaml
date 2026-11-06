@@ -1,0 +1,29 @@
+name: jobauto
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: jobauto
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: jobauto
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobauto -d jobauto"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    build: .
+    profiles: ["app"]
+    command: ["bun", "dist/server/server.js"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://jobauto:local-development-only@postgres:5432/jobauto
+      HOST: 0.0.0.0
+      PORT: 4310
+    ports: ["127.0.0.1:4310:4310"]
+    depends_on:
+      postgres: {condition: service_healthy}
+volumes:
+  postgres-data:

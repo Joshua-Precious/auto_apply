@@ -1,0 +1,21 @@
+config {
+  output: "_generated";
+
+  core: {
+    api: {
+      prefix: "/v1";
+      maxBodyBytes: 262144;
+    };
+    openapi: { enabled: false };
+    graphql: { enabled: false };
+    sdk: { enabled: false };
+  };
+
+  security: {
+    cors: { origin: []; credentials: false };
+    headers: { enabled: true };
+  };
+
+  adminUi: { enabled: false };
+  migrate: { dropOrphan: false };
+}

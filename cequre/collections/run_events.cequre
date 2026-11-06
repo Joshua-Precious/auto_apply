@@ -1,0 +1,14 @@
+collection run_events {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    run_id: text @index;
+    sequence: number;
+    event_key: text @unique;
+    type: text;
+    status: text;
+    metadata: json;
+  }
+}

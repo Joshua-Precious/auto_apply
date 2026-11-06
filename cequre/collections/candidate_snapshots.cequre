@@ -1,0 +1,14 @@
+collection candidate_snapshots {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    subject_ref: text @index;
+    snapshot: json;
+    input_hash: text;
+    consent_purpose: text;
+    consent_granted_at: date;
+    expires_at: date @index;
+  }
+}

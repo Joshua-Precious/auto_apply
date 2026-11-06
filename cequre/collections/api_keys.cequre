@@ -1,0 +1,15 @@
+collection api_keys {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    key_id: text @unique @index;
+    tenant_id: text @index;
+    client_id: text @index;
+    secret_digest: text;
+    pepper_version: number;
+    scopes: json;
+    expires_at: date @index;
+    revoked_at: date @optional;
+  }
+}

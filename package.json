@@ -1,0 +1,40 @@
+{
+  "name": "jobauto-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "scripts": {
+    "generate": "cequre generate",
+    "dev:api": "PORT=4310 cequre dev --dir ./cequre --port 4310 --no-tui",
+    "dev:web": "vite --config web/vite.config.ts",
+    "worker": "echo 'Cequre runs queued work and retention in-process; no separate worker is required.'",
+    "setup": "bun scripts/setup.ts",
+    "keys": "bun scripts/keys.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web/tsconfig.json",
+    "test": "bun test tests/cequre.test.ts tests/mcp.test.ts",
+    "test:integration": "bun test --timeout 30000 tests/cequre.test.ts",
+    "build": "bun run typecheck && vite build --config web/vite.config.ts && cequre build --dir ./cequre --output dist/server",
+    "demo:enable": "bun scripts/demo.ts",
+    "mcp": "bun integrations/mcp/server.ts",
+    "infra:up": "docker compose up -d --wait postgres",
+    "infra:down": "docker compose down",
+    "start": "bun cequre/index.ts"
+  },
+  "dependencies": {
+    "postgres": "^4.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.10",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.4",
+    "typescript": "5.9.3",
+    "vite": "7.3.1"
+  }
+}

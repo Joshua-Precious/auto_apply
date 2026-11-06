@@ -1,0 +1,26 @@
+collection runs {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    client_id: text @index;
+    candidate_snapshot_id: text @optional;
+    candidate_subject_ref: text @optional @index;
+    job_snapshot_id: text @optional;
+    operation: text;
+    status: text @default("queued") @index;
+    progress: number @default(0);
+    version: number @default(1);
+    event_sequence: number @default(0);
+    correlation_id: text @unique;
+    result: json @optional;
+    error: json @optional;
+    usage: json @optional;
+    cancel_requested_at: date @optional;
+    started_at: date @optional;
+    completed_at: date @optional;
+    deadline_at: date;
+    expires_at: date @index;
+  }
+}

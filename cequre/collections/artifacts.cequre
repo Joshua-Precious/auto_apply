@@ -1,0 +1,16 @@
+collection artifacts {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    run_id: text @index;
+    subject_ref: text @index;
+    kind: text;
+    version: number;
+    content: json;
+    checksum: text;
+    expires_at: date @index;
+    version_key: text @unique;
+  }
+}

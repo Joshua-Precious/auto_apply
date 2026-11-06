@@ -1,0 +1,14 @@
+collection deletions {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    client_id: text @index;
+    subject_ref: text @index;
+    status: text @default("queued");
+    removed: json;
+    error: json @optional;
+    completed_at: date @optional;
+  }
+}

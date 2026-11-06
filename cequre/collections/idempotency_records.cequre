@@ -1,0 +1,14 @@
+collection idempotency_records {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    client_id: text @index;
+    idempotency_key: text;
+    request_hash: text;
+    run_id: text;
+    record_key: text @unique;
+    expires_at: date @index;
+  }
+}

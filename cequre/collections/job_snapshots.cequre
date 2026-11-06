@@ -1,0 +1,11 @@
+collection job_snapshots {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    tenant_id: text @index;
+    input: json;
+    content_hash: text;
+    expires_at: date @index;
+  }
+}

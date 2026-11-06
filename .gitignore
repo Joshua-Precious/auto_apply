@@ -1,0 +1,11 @@
+node_modules/
+cequre/_generated/
+.env
+.env.*
+!.env.example
+.local/
+dist/
+coverage/
+*.log
+uploads/
+cequre.admin.json

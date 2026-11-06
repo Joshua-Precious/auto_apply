@@ -1,0 +1,9 @@
+collection tenants {
+  hideFromApi: true;
+  hideFromAdmin: true;
+
+  fields: {
+    name: text;
+    active: boolean @default(true);
+  }
+}
